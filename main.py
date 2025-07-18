@@ -1,3 +1,5 @@
+from rag.embedder import load_faiss_index, embed_query
+import numpy as np
 import streamlit as st
 import json
 import difflib
@@ -56,10 +58,11 @@ if "chat" not in st.session_state:
 # -----------------------------
 # ✅ Semantic Retrieval
 # -----------------------------
-def get_semantic_context(user_question):
-    inputs = [item['input'] for item in persona_data]
-    closest_matches = difflib.get_close_matches(user_question, inputs, n=5, cutoff=0.3)
-    matched_qas = [item for item in persona_data if item['input'] in closest_matches]
+def get_semantic_context(user_question, top_k=5):
+    index, metadata = load_faiss_index("data/vector_store/faiss_index", "data/vector_store/faiss_index_metadata.pkl")
+    query_embedding = embed_query(user_question)
+    scores, indices = index.search(np.array([query_embedding]), top_k)
+    matched_qas = [metadata[i] for i in indices[0]]
     return matched_qas
 
 # -----------------------------
@@ -125,7 +128,7 @@ def ask_gpt(user_input):
             {"role": "user", "content": prompt}
         ],
         temperature=0.8,
-        max_tokens=200
+        max_tokens=600
     )
     return response.choices[0].message.content.strip()
 
